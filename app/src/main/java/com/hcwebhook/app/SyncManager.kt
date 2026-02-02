@@ -44,6 +44,8 @@ class SyncManager(private val context: Context) {
 
             // Check if there's any new data
             if (isHealthDataEmpty(healthData)) {
+                preferencesManager.setLastSyncTime(Instant.now().toEpochMilli())
+                preferencesManager.setLastSyncSummary("No new data")
                 return@withContext Result.success(SyncResult.NoData)
             }
 
@@ -74,6 +76,11 @@ class SyncManager(private val context: Context) {
             // Update last sync timestamps
             val syncCounts = mutableMapOf<HealthDataType, Int>()
             updateSyncTimestamps(healthData, syncCounts)
+
+            // Save last sync status for UI display
+            val summary = buildSyncSummary(healthData)
+            preferencesManager.setLastSyncTime(Instant.now().toEpochMilli())
+            preferencesManager.setLastSyncSummary(summary)
 
             Result.success(SyncResult.Success(syncCounts))
         } catch (e: Exception) {
@@ -159,6 +166,37 @@ class SyncManager(private val context: Context) {
             preferencesManager.setLastSyncTimestamp(HealthDataType.NUTRITION, data.nutrition.maxOf { it.endTime }.toEpochMilli())
             syncCounts[HealthDataType.NUTRITION] = data.nutrition.size
         }
+    }
+
+    private fun buildSyncSummary(data: HealthData): String {
+        val parts = mutableListOf<String>()
+
+        if (data.steps.isNotEmpty()) {
+            val total = data.steps.sumOf { it.count }
+            parts.add("%,d steps".format(total))
+        }
+        if (data.distance.isNotEmpty()) {
+            val totalKm = data.distance.sumOf { it.meters } / 1000.0
+            parts.add("%.1f km".format(totalKm))
+        }
+        if (data.activeCalories.isNotEmpty()) {
+            val total = data.activeCalories.sumOf { it.calories }.toInt()
+            parts.add("$total cal")
+        }
+        if (data.sleep.isNotEmpty()) {
+            parts.add("${data.sleep.size} sleep")
+        }
+        if (data.exercise.isNotEmpty()) {
+            parts.add("${data.exercise.size} exercise")
+        }
+        if (data.weight.isNotEmpty()) {
+            parts.add("${data.weight.size} weight")
+        }
+        if (data.heartRate.isNotEmpty()) {
+            parts.add("${data.heartRate.size} HR")
+        }
+
+        return if (parts.isEmpty()) "No new data" else parts.joinToString(" · ")
     }
 
     private fun buildJsonPayload(healthData: HealthData): String {

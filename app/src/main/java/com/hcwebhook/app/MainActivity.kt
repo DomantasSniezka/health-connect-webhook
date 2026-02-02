@@ -37,6 +37,7 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.lifecycle.lifecycleScope
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.hcwebhook.app.ui.theme.HCWebhookTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -113,6 +114,11 @@ class MainActivity : ComponentActivity() {
         var selectedDataTypeForPermission by remember { mutableStateOf<HealthDataType?>(null) }
         var isDataTypesExpanded by remember { mutableStateOf(false) }
 
+        // Last sync status
+        var lastSyncTime by remember { mutableStateOf(preferencesManager.getLastSyncTime()) }
+        var lastSyncSummary by remember { mutableStateOf(preferencesManager.getLastSyncSummary()) }
+        var lastSyncRelativeTime by remember { mutableStateOf("") }
+
         // Check if configuration has changed
         val hasChanges = remember(syncInterval, webhookUrls, enabledDataTypes, initialSyncInterval, initialWebhookUrls, initialEnabledDataTypes) {
             val currentInterval = syncInterval.toIntOrNull() ?: initialSyncInterval
@@ -187,6 +193,26 @@ class MainActivity : ComponentActivity() {
                 } catch (e: Exception) {
                     // Silent fail
                 }
+            }
+        }
+
+        // Refresh last sync relative time every 30 seconds
+        LaunchedEffect(lastSyncTime) {
+            while (true) {
+                val syncTime = lastSyncTime
+                lastSyncRelativeTime = if (syncTime != null) {
+                    val elapsed = System.currentTimeMillis() - syncTime
+                    val seconds = elapsed / 1000
+                    val minutes = seconds / 60
+                    val hours = minutes / 60
+                    when {
+                        seconds < 60 -> "just now"
+                        minutes < 60 -> "${minutes}m ago"
+                        hours < 24 -> "${hours}h ago"
+                        else -> "${hours / 24}d ago"
+                    }
+                } else ""
+                delay(30_000)
             }
         }
 
@@ -335,6 +361,42 @@ class MainActivity : ComponentActivity() {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                        }
+                    }
+                }
+
+                // Last Sync Status
+                if (lastSyncTime != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Last Sync",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    lastSyncRelativeTime,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            lastSyncSummary?.let { summary ->
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    summary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -543,6 +605,8 @@ class MainActivity : ComponentActivity() {
                                                           syncMessage = "Sync failed: ${e.message}"
                                                       } finally {
                                                           isSyncing = false
+                                                          lastSyncTime = preferencesManager.getLastSyncTime()
+                                                          lastSyncSummary = preferencesManager.getLastSyncSummary()
                                                       }
                                                   }
                                                   
@@ -591,6 +655,9 @@ class MainActivity : ComponentActivity() {
                                         syncMessage = "Sync failed: ${e.message}"
                                     } finally {
                                         isSyncing = false
+                                        // Refresh last sync status card
+                                        lastSyncTime = preferencesManager.getLastSyncTime()
+                                        lastSyncSummary = preferencesManager.getLastSyncSummary()
                                     }
                                 }
                             },
