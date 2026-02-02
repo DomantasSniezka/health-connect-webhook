@@ -9,7 +9,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.hcwebhook.app"
+        applicationId = "com.domsniezka.hcwebhook"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
