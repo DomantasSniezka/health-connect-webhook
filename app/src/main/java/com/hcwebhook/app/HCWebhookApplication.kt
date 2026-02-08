@@ -16,6 +16,9 @@ class HCWebhookApplication : Application() {
 
         // Schedule periodic sync work
         scheduleSyncWork()
+
+        // Schedule guaranteed daily alarms (morning + evening)
+        ScheduledSyncManager(this).scheduleAllAlarms()
     }
 
     fun scheduleSyncWork() {

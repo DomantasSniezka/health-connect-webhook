@@ -3,7 +3,9 @@ package com.hcwebhook.app
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -488,6 +490,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Scheduled Daily Syncs
+                ScheduledSyncsCard(context)
+
                 // Webhook URLs
                 Card {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -690,6 +695,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Bottom spacing so FAB doesn't overlap last card
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Permission Modal
                 if (showPermissionModal && selectedDataTypeForPermission != null) {
                     AlertDialog(
@@ -782,5 +790,185 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun ScheduledSyncsCard(context: Context) {
+        val scheduledSyncManager = remember { ScheduledSyncManager(context) }
+
+        var enabled by remember { mutableStateOf(preferencesManager.isScheduledSyncEnabled()) }
+        var morningHour by remember { mutableStateOf(preferencesManager.getMorningSyncHour()) }
+        var morningMinute by remember { mutableStateOf(preferencesManager.getMorningSyncMinute()) }
+        var eveningHour by remember { mutableStateOf(preferencesManager.getEveningSyncHour()) }
+        var eveningMinute by remember { mutableStateOf(preferencesManager.getEveningSyncMinute()) }
+
+        var showMorningPicker by remember { mutableStateOf(false) }
+        var showEveningPicker by remember { mutableStateOf(false) }
+
+        val canScheduleExact = remember { scheduledSyncManager.canScheduleExactAlarms() }
+
+        Card {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Scheduled Daily Syncs", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Guaranteed morning & evening syncs via exact alarms",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = enabled,
+                        onCheckedChange = { checked ->
+                            enabled = checked
+                            preferencesManager.setScheduledSyncEnabled(checked)
+                            if (checked) {
+                                scheduledSyncManager.scheduleAllAlarms()
+                                Toast.makeText(context, "Daily syncs enabled", Toast.LENGTH_SHORT).show()
+                            } else {
+                                scheduledSyncManager.cancelAllAlarms()
+                                Toast.makeText(context, "Daily syncs disabled", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = enabled,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Morning time
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Morning", style = MaterialTheme.typography.bodyMedium)
+                            OutlinedButton(onClick = { showMorningPicker = true }) {
+                                Text(formatTime(morningHour, morningMinute))
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Evening time
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Evening", style = MaterialTheme.typography.bodyMedium)
+                            OutlinedButton(onClick = { showEveningPicker = true }) {
+                                Text(formatTime(eveningHour, eveningMinute))
+                            }
+                        }
+
+                        // Exact alarm permission hint
+                        if (!canScheduleExact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        "Exact alarm permission not granted. Syncs will still fire but may be delayed by a few minutes.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    TextButton(
+                                        onClick = {
+                                            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                                data = Uri.parse("package:${context.packageName}")
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                    ) {
+                                        Text("Grant Permission")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Morning time picker dialog
+        if (showMorningPicker) {
+            val timePickerState = rememberTimePickerState(
+                initialHour = morningHour,
+                initialMinute = morningMinute,
+                is24Hour = true
+            )
+            AlertDialog(
+                onDismissRequest = { showMorningPicker = false },
+                title = { Text("Morning Sync Time") },
+                text = { TimePicker(state = timePickerState) },
+                confirmButton = {
+                    Button(onClick = {
+                        morningHour = timePickerState.hour
+                        morningMinute = timePickerState.minute
+                        preferencesManager.setMorningSyncTime(morningHour, morningMinute)
+                        scheduledSyncManager.scheduleAllAlarms()
+                        showMorningPicker = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showMorningPicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Evening time picker dialog
+        if (showEveningPicker) {
+            val timePickerState = rememberTimePickerState(
+                initialHour = eveningHour,
+                initialMinute = eveningMinute,
+                is24Hour = true
+            )
+            AlertDialog(
+                onDismissRequest = { showEveningPicker = false },
+                title = { Text("Evening Sync Time") },
+                text = { TimePicker(state = timePickerState) },
+                confirmButton = {
+                    Button(onClick = {
+                        eveningHour = timePickerState.hour
+                        eveningMinute = timePickerState.minute
+                        preferencesManager.setEveningSyncTime(eveningHour, eveningMinute)
+                        scheduledSyncManager.scheduleAllAlarms()
+                        showEveningPicker = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEveningPicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+    }
+
+    private fun formatTime(hour: Int, minute: Int): String {
+        return String.format("%02d:%02d", hour, minute)
     }
 }
