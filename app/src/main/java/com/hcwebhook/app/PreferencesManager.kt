@@ -22,6 +22,11 @@ class PreferencesManager(context: Context) {
         private const val KEY_LAST_SYNC_SUMMARY = "last_sync_summary"
         private const val DEFAULT_SYNC_INTERVAL_MINUTES = 60
         private const val MAX_LOGS = 100
+        private const val KEY_SCHEDULED_SYNC_ENABLED = "scheduled_sync_enabled"
+        private const val KEY_MORNING_SYNC_HOUR = "morning_sync_hour"
+        private const val KEY_MORNING_SYNC_MINUTE = "morning_sync_minute"
+        private const val KEY_EVENING_SYNC_HOUR = "evening_sync_hour"
+        private const val KEY_EVENING_SYNC_MINUTE = "evening_sync_minute"
     }
 
     fun getLastStepsSyncTimestamp(): Long? {
@@ -124,5 +129,33 @@ class PreferencesManager(context: Context) {
 
     fun setLastSyncSummary(summary: String) {
         prefs.edit().putString(KEY_LAST_SYNC_SUMMARY, summary).apply()
+    }
+
+    fun isScheduledSyncEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SCHEDULED_SYNC_ENABLED, true)
+    }
+
+    fun setScheduledSyncEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SCHEDULED_SYNC_ENABLED, enabled).apply()
+    }
+
+    fun getMorningSyncHour(): Int = prefs.getInt(KEY_MORNING_SYNC_HOUR, 8)
+    fun getMorningSyncMinute(): Int = prefs.getInt(KEY_MORNING_SYNC_MINUTE, 0)
+
+    fun setMorningSyncTime(hour: Int, minute: Int) {
+        prefs.edit()
+            .putInt(KEY_MORNING_SYNC_HOUR, hour)
+            .putInt(KEY_MORNING_SYNC_MINUTE, minute)
+            .apply()
+    }
+
+    fun getEveningSyncHour(): Int = prefs.getInt(KEY_EVENING_SYNC_HOUR, 21)
+    fun getEveningSyncMinute(): Int = prefs.getInt(KEY_EVENING_SYNC_MINUTE, 0)
+
+    fun setEveningSyncTime(hour: Int, minute: Int) {
+        prefs.edit()
+            .putInt(KEY_EVENING_SYNC_HOUR, hour)
+            .putInt(KEY_EVENING_SYNC_MINUTE, minute)
+            .apply()
     }
 }
