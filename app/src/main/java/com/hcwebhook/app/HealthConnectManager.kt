@@ -149,6 +149,8 @@ data class HydrationData(
 )
 
 data class NutritionData(
+    val name: String,
+    val mealType: Int,
     val calories: Double?,
     val protein: Double?,
     val carbs: Double?,
@@ -494,7 +496,18 @@ class HealthConnectManager(private val context: Context) {
         val request = ReadRecordsRequest(recordType = NutritionRecord::class, timeRangeFilter = TimeRangeFilter.between(startTime, endTime))
         val response = healthConnectClient.readRecords(request)
         return response.records.filter { lastSync == null || it.endTime >= lastSync }
-            .map { NutritionData(it.energy?.inKilocalories, it.protein?.inGrams, it.totalCarbohydrate?.inGrams, it.totalFat?.inGrams, it.startTime, it.endTime) }
+            .map {
+                NutritionData(
+                    name = it.name ?: "Unknown item",
+                    mealType = it.mealType,
+                    calories = it.energy?.inKilocalories,
+                    protein = it.protein?.inGrams,
+                    carbs = it.totalCarbohydrate?.inGrams,
+                    fat = it.totalFat?.inGrams,
+                    startTime = it.startTime,
+                    endTime = it.endTime
+                )
+            }
     }
 
     fun isHealthConnectAvailable(): Boolean {

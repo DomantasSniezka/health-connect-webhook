@@ -373,10 +373,12 @@ class SyncManager(private val context: Context) {
             if (healthData.nutrition.isNotEmpty()) {
                 putJsonArray("nutrition") {
                     healthData.nutrition.forEach { add(buildJsonObject {
-                        it.calories?.let { cal -> put("calories", cal) }
-                        it.protein?.let { prot -> put("protein_grams", prot) }
-                        it.carbs?.let { carb -> put("carbs_grams", carb) }
-                        it.fat?.let { f -> put("fat_grams", f) }
+                        put("name", it.name)
+                        put("meal_type", it.mealType)
+                        it.calories?.let { cal -> put("energy_kcal", cal) }
+                        it.protein?.let { prot -> put("protein_g", prot) }
+                        it.carbs?.let { carb -> put("carbs_g", carb) }
+                        it.fat?.let { f -> put("fat_g", f) }
                         put("start_time", it.startTime.toString())
                         put("end_time", it.endTime.toString())
                     }) }
